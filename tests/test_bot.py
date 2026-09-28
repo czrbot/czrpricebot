@@ -200,4 +200,25 @@ class BotTests(unittest.TestCase):
         self.assertIsNone(self.runner().run('price','8',live=True))
         self.assertEqual(self.calls,[])
 
+
+    def test_dashboard_only_is_explicit_and_keeps_approval_gate(self):
+        self.verify()
+        os.environ.pop('TEAM_ALERT_WEBHOOK_URL')
+        with self.assertRaises(bot.Refused): self.runner().gate()
+        self.c['alert_mode']='dashboard_only'
+        with self.assertRaises(bot.Refused): self.runner().gate()
+        os.environ['CZR_APPROVED_CONFIG_SHA256']=bot.digest(self.c)
+        self.runner().gate()
+        self.c['alert_mode']='typo'
+        os.environ['CZR_APPROVED_CONFIG_SHA256']=bot.digest(self.c)
+        with self.assertRaises(bot.Refused): self.runner().gate()
+
+    def test_dashboard_only_failure_is_durable_and_never_delivered(self):
+        self.c['alert_mode']='dashboard_only'
+        runner=self.runner()
+        for _ in range(self.c['alert_after']+1): runner.failure('ticker','test failure')
+        self.assertEqual(self.calls,[])
+        rows=self.s.db.execute("SELECT event FROM events WHERE event LIKE 'alert_%'").fetchall()
+        self.assertEqual([r[0] for r in rows],['alert_due','alert_dashboard_only'])
+
 if __name__=='__main__': unittest.main()
