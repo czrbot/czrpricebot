@@ -51,3 +51,31 @@ class CloudTests(unittest.TestCase):
         self.assertNotIn('csrf',state)
 
 if __name__=='__main__':unittest.main()
+
+class LiveCloudTests(unittest.TestCase):
+    def setUp(self):
+        CloudTests.setUp(self)
+        self.center=cloud.CloudCenter(self.config,self.center.state_path)
+        self.center.running=True
+        self.env=patch.dict(cloud.os.environ,{},clear=True);self.env.start()
+    def tearDown(self):self.env.stop();CloudTests.tearDown(self)
+    def test_disabled_worker_only_previews(self):
+        with patch('bot.slots',return_value=[('price','one')]),patch('bot.Bot.run') as run:
+            self.center.tick(2000000000)
+        self.assertEqual(run.call_args.kwargs,{'live':False,'preview':True})
+    def test_missing_gates_prevent_live_scheduler_network(self):
+        cloud.os.environ['CZR_LIVE_POSTING']='true'
+        with patch('bot.request') as request,patch('bot.Bot.run') as run:
+            self.center.tick(2000000000)
+        request.assert_not_called();run.assert_not_called()
+    def test_live_mode_durable_slots_and_pause(self):
+        cloud.os.environ['CZR_LIVE_POSTING']='true'
+        with patch('bot.Bot.gate'),patch('bot.slots',return_value=[('price','one')]),patch('bot.Bot.run') as run:
+            self.center.tick(2000000000)
+            other=cloud.CloudCenter(self.config,self.center.state_path);other.running=True
+            other.tick(2000000001)
+            self.assertEqual(run.call_count,1)
+            self.assertEqual(run.call_args.kwargs,{'live':True,'preview':False})
+            other.running=False
+            with patch('bot.slots',return_value=[('price','two')]):other.tick(2000000002)
+            self.assertEqual(run.call_count,1)
