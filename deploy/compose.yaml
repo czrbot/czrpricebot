@@ -1,0 +1,22 @@
+services:
+  bot:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      CZR_LIVE_POSTING: "false"
+    volumes:
+      - ../config.json:/app/config.json:ro
+      - bot-state:/state
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+volumes:
+  bot-state:
