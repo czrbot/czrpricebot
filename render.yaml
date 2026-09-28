@@ -1,0 +1,21 @@
+# Preview workers stay disabled to avoid duplicate bot instances.
+previews:
+  generation: off
+services:
+  - type: worker
+    name: czr-price-bot
+    runtime: docker
+    plan: 0.5c-512mb
+    region: singapore
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: CZR_LIVE_POSTING
+        value: "false"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    disk:
+      name: bot-state
+      mountPath: /state
+      sizeGB: 1

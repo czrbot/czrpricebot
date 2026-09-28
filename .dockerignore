@@ -1,0 +1,5 @@
+.git
+.env*
+state/
+*.sqlite*
+__pycache__/

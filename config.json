@@ -1,0 +1,44 @@
+{
+  "pair": "czrtoken1858usdt1858",
+  "base_url": "https://openapi.czrex.com",
+  "ticker_path": "/sapi/v2/ticker",
+  "timestamp_unit": "milliseconds",
+  "fields": {
+    "last": "last",
+    "timestamp": "time",
+    "high": "high",
+    "low": "low",
+    "open": "open",
+    "volume": "vol"
+  },
+  "include_24h": false,
+  "volume_unit": "CZR",
+  "interval_hours": 4,
+  "daily_utc": "15:10",
+  "freshness_seconds": 300,
+  "future_skew_seconds": 30,
+  "schedule_grace_seconds": 300,
+  "alert_after": 3,
+  "alert_cooldown_seconds": 3600,
+  "chainup_verification": {
+    "reference": "",
+    "confirmed_at": "",
+    "base_url": "",
+    "symbol": "",
+    "last": "",
+    "timestamp": "",
+    "window": "",
+    "high": "",
+    "low": "",
+    "open": "",
+    "volume": ""
+  },
+  "templates": {
+    "price": "CZR/USDT: {price} USDT\nSource: CZR Exchange\nTicker time: {timestamp}\n{link}",
+    "daily": "CZR/USDT daily summary\nPrice: {price} USDT{stats}\nSource: CZR Exchange\nTicker time: {timestamp}\n{link}"
+  },
+  "launch_date": "2026-10-01",
+  "start_at_utc": "2026-10-01T03:00:00Z",
+  "max_posts_per_day": 7,
+  "price_anchor_utc": "03:00"
+}

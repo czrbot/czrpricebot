@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+state/
+*.sqlite3*
+*.lock
+__pycache__/
+*.pyc
