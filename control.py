@@ -111,7 +111,7 @@ class Center:
                 if type(c[key]) is not int or not 1<=c[key]<=86400: raise bot.Refused('Invalid numeric configuration')
             if not isinstance(c['templates'],dict) or set(c['templates'])!={'price','daily'}:
                 raise bot.Refused('Both post formats are required')
-            sample={'price':'0.12345678','timestamp':'2026-10-01 00:00 UTC','stats':''}
+            sample={'price':'0.12345678','price_5dp':'0.12346','change_percent':'+2.83','volume_usdt':'1000','timestamp':'2026-10-01 00:00 UTC','stats':''}
             for kind,template in c['templates'].items():
                 if not isinstance(template,str) or len(template)>600: raise bot.Refused('Post format is too long')
                 for _,field,spec,conversion in bot.string.Formatter().parse(template):

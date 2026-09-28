@@ -9,7 +9,8 @@
     "high": "high",
     "low": "low",
     "open": "open",
-    "volume": "vol"
+    "volume": "vol",
+    "quote_volume": "amount"
   },
   "include_24h": false,
   "volume_unit": "CZR",
@@ -31,10 +32,11 @@
     "high": "",
     "low": "",
     "open": "",
-    "volume": ""
+    "volume": "",
+    "quote_volume": ""
   },
   "templates": {
-    "price": "CZR/USDT: {price} USDT\nSource: CZR Exchange\nTicker time: {timestamp}\n{link}",
+    "price": "$CZR / USDT 📊\n\nPrice: ${price_5dp}\n24h change: {change_percent}%\n24h volume: {volume_usdt} USDT\n\nUpdated {timestamp} · @czrexchange\nTrade $CZR: {link}\n\n🤖 Automated price update",
     "daily": "CZR/USDT daily summary\nPrice: {price} USDT{stats}\nSource: CZR Exchange\nTicker time: {timestamp}\n{link}"
   },
   "launch_date": "2026-10-01",

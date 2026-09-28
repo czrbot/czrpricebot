@@ -21,3 +21,11 @@ Please confirm for CZR Exchange tenant 1858:
 | Availability | Exact public trading opening time, and whether prelaunch endpoint values are genuine executable-market trades or test/indicative data? |
 
 Record the support ticket/document reference, respondent, confirmation date, and exact answers. Update configuration mappings only from that evidence. The price-only path uses `last` and a verified freshness timestamp; 24-hour fields remain disabled. Bid/ask fields and `rose` are never displayed by this implementation. If timestamp semantics or the response structure differ, update and retest the adapter before approval.
+
+## Documentation checked September 28, 2026
+
+The linked [spot API documentation](https://exchangedocsv2.gitbook.io/open-api-doc-v2/spot) identifies `amount` as quote-currency trading volume, so the adapter maps USDT volume to `amount`, never to `vol` or an estimate made by multiplying volume by last price. It labels `time` as “Open Time”; that does not establish freshness of the last executed trade. Exact window, opening-price selection, quote-volume calculation, and last-trade freshness remain unconfirmed. Verification gates remain pending.
+
+## Approved routine format
+
+The owner supplied the routine template on September 28, 2026. The configuration now uses that exact structure with five-decimal prices, independently calculated percentage from confirmed last/open inputs, reported quote volume, UTC, and the @czrexchange mention. This approves the routine wording only; it does not certify market-data semantics or activate posting. Required missing/unverified fields cause a skip, including in previews.

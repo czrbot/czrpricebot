@@ -5,7 +5,7 @@ import hmac
 import secrets
 import contextlib
 import datetime as dt
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, localcontext, ROUND_HALF_UP
 import email.utils
 import fcntl
 import hashlib
@@ -200,15 +200,20 @@ def load_config(path):
             raise Refused('invalid ' + key)
     for kind in ('price', 'daily'):
         fields = [f for _, f, _, _ in string.Formatter().parse(c['templates'][kind]) if f is not None]
-        if not {'price', 'timestamp', 'link'} <= set(fields) or not set(fields) <= {'price', 'timestamp', 'link', 'stats'}:
+        if not {'timestamp', 'link'} <= set(fields) or not set(fields).intersection({'price','price_5dp'}) or not set(fields) <= {'price', 'price_5dp', 'timestamp', 'link', 'stats', 'change_percent', 'volume_usdt'}:
             raise Refused('template placeholders invalid')
-        if 'CZR Exchange' not in c['templates'][kind] or 'CZR/USDT' not in c['templates'][kind]:
+        if not any(x in c['templates'][kind] for x in ('CZR Exchange','@czrexchange')) or not any(x in c['templates'][kind] for x in ('CZR/USDT','$CZR / USDT')):
             raise Refused('template must identify source and pair')
     return c
+
+def needs_quote_metrics(c):
+    return any('{change_percent}' in t or '{volume_usdt}' in t for t in c['templates'].values())
 
 def verified(c, stats=False):
     v = c['provider_verification']
     required = ['base_url', 'symbol', 'last', 'timestamp']
+    if needs_quote_metrics(c):
+        required += ['window', 'open', 'quote_volume']
     if stats:
         required += ['window', 'high', 'low', 'open', 'volume']
     return bool(v.get('reference') and v.get('confirmed_at') and all(v.get(k) for k in required))
@@ -225,7 +230,24 @@ def ticker(c, raw, now, fixture=False):
     ts = float(ts / (1000 if c['timestamp_unit'] == 'milliseconds' else 1))
     if ts > now + c['future_skew_seconds'] or now - ts > c['freshness_seconds']:
         raise Refused('stale or future ticker timestamp')
-    data = {'price': fmt(price), 'timestamp': stamp(ts), 'ts': ts}
+    with localcontext() as context:
+        context.prec = 60
+        rounded = price.quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
+    if rounded <= 0 and any('{price_5dp}' in t for t in c['templates'].values()):
+        raise Refused('price rounds to zero at approved precision')
+    data = {'price': fmt(price), 'price_5dp': format(rounded, '.5f'), 'timestamp': stamp(ts), 'ts': ts}
+    if needs_quote_metrics(c):
+        if not verified(c):
+            raise Refused('24-hour change and quote-volume verification pending')
+        opening = number(raw.get(c['fields']['open']))
+        field = c['fields'].get('quote_volume')
+        if not isinstance(field, str) or not field:
+            raise Refused('verified USDT quote-volume field not configured')
+        volume = number(raw.get(field), False)
+        change = (price - opening) / opening * 100
+        data['change_percent'] = f'{change:+.2f}'
+        data['volume_usdt'] = fmt(volume)
+
     if c['include_24h']:
         if not verified(c, True):
             raise Refused('24-hour calculation verification pending')
@@ -242,7 +264,12 @@ def ticker(c, raw, now, fixture=False):
     return data
 
 def render(c, kind, data):
-    text = c['templates'][kind].format(price=data['price'], timestamp=data['timestamp'], link=LINK, stats=data['stats'])
+    try:
+        text = c['templates'][kind].format(**{**data, 'link': LINK})
+    except (KeyError, ValueError, IndexError):
+        raise Refused('required post field missing or invalid template') from None
+    if '{' in text or '}' in text:
+        raise Refused('unresolved placeholder in post')
     # Conservative Unicode weighting; URL has X's standard 23-character weight.
     weight = sum(1 if ord(x) < 128 else 2 for x in text.replace(LINK, '')) + 23
     if weight > 280 or text.count(LINK) != 1 or 'UTC' not in text:
@@ -372,7 +399,8 @@ class Bot:
                 self.failure('ticker', str(e))
                 return None
             text = render(self.c, kind, data)
-            fingerprint = digest({'price': data['price'], 'stats': data['stats'] if '{stats}' in self.c['templates'][kind] else ''})
+            display_fields = {f for _, f, _, _ in string.Formatter().parse(self.c['templates'][kind]) if f and f not in ('timestamp', 'link')}
+            fingerprint = digest({field: data[field] for field in sorted(display_fields)})
             previous = self.s.get('previous:' + keykind)
             # Compare market values only: timestamp changes must not trigger posts.
             if previous == fingerprint:
