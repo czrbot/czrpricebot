@@ -1,3 +1,5 @@
+See [RENDER.md](RENDER.md) for the cloud command-center worker. The standalone CLI below remains available for diagnostics.
+
 # CZR price bot
 
 A Python 3.11+ service for `@czrpricebot`. No third-party Python packages. **Not deployed and live posting is disabled.** The workspace had no existing code or deployment setup.
@@ -83,7 +85,7 @@ docker compose -f deploy/compose.yaml build
 docker compose -f deploy/compose.yaml up -d
 ```
 
-The example command starts a **dry-run** daemon; it requires completed API provider verification to render production dry runs. It never enables live posting. For a local worker use `python3 bot.py --daemon --dry-run`.
+The Compose example starts the cloud command-center worker with publishing locked; it requires completed API provider verification to render production dry runs. It never enables live posting. For a local worker use `python3 bot.py --daemon --dry-run`.
 
 After verification, credentials, and explicit owner approval, the deployment operator can override the command with `python bot.py --daemon --live --state /state/bot.sqlite3`, inject the secrets/approval variables, and remove the sample's forced false value. Do not use multiple replicas or multiple state volumes for the same X account. Keep the durable SQLite volume across restarts, deployments, and rollbacks. Losing it loses duplicate protection.
 
