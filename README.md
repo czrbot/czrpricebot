@@ -2,7 +2,7 @@ See [RENDER.md](RENDER.md) for the cloud command-center worker. The standalone C
 
 # CZR price bot
 
-A Python 3.11+ service for `@czrpricebot`. No third-party Python packages. **Not deployed and live posting is disabled.** The workspace had no existing code or deployment setup.
+A Python 3.11+ service for `@czrpricebot`. No third-party Python packages. **Deployed on Render; automatic live posting remains disabled.** The workspace had no existing code or deployment setup.
 
 The configured public endpoint is:
 
@@ -70,11 +70,11 @@ Alternatively `X_USER_ACCESS_TOKEN` accepts an OAuth 2.0 **user** token with `tw
 The owner must approve the final rendered price/daily formats and configuration before activation. The bot additionally requires **all** of:
 
 1. Completed API provider evidence and verified mappings.
-2. Authorized X credentials, expected user ID, and alert webhook.
+2. Authorized X credentials, expected user ID, and a configured webhook or TLS SMTP sender.
 3. `CZR_APPROVED_CONFIG_SHA256` set to the output of `python3 bot.py --config-hash`, after approval.
 4. `CZR_LIVE_POSTING=true` and the explicit `--live` CLI flag.
 
-None of those activation steps have been performed. Do not paste credentials into chat, commit them, or put them in command-line arguments. The application does not automatically load `.env` files.
+X credentials and account ID are installed and verified. Provider evidence, approval and tested alerts are still required before automatic activation. Do not paste credentials into chat, commit them, or put them in command-line arguments. The application does not automatically load `.env` files.
 
 ## Deployment
 
@@ -89,7 +89,7 @@ The Compose example starts the cloud command-center worker with publishing locke
 
 After verification, credentials, and explicit owner approval, the deployment operator can override the command with `python bot.py --daemon --live --state /state/bot.sqlite3`, inject the secrets/approval variables, and remove the sample's forced false value. Do not use multiple replicas or multiple state volumes for the same X account. Keep the durable SQLite volume across restarts, deployments, and rollbacks. Losing it loses duplicate protection.
 
-The container runs as UID 10001, with a read-only root filesystem, dropped capabilities and bounded container logs. Ensure the state volume is writable by that UID. Docker artifacts are supplied but were not built or deployed in this environment. Stop with `docker compose -f deploy/compose.yaml stop`; restarting retains state. External uptime monitoring should detect a stopped worker, disk-full conditions, and missing expected scheduler activity.
+The container runs as UID 10001, with a read-only root filesystem, dropped capabilities and bounded container logs. Ensure the state volume is writable by that UID. The Docker worker is deployed on Render; see RENDER.md for cloud operations. Stop with `docker compose -f deploy/compose.yaml stop`; restarting retains state. External uptime monitoring should detect a stopped worker, disk-full conditions, and missing expected scheduler activity.
 
 ## Failures, duplicate prevention, and audit
 
@@ -97,7 +97,7 @@ SQLite stores every scheduled attempt, retrieval attempt/result, failure, skip, 
 
 Market fingerprints exclude timestamps and compare the displayed price/metrics with the last successful update of the same type. An unchanged market skips the next update even if the API timestamp advances. Daily summaries are separate from four-hour prices so their schedules do not suppress each other.
 
-Ticker transient GET failures use bounded exponential backoff with jitter. 410/418/429 preserve a cooldown, honoring server reset information and a conservative minimum. X rate limits also persist across restarts. Credentials/permission errors are logged and not blindly retried. Repeated ticker or posting failures alert after three failed scheduled attempts; successful component operation resets its streak. Alert delivery is rate limited to hourly per component; failed delivery remains due and is logged. The alert destination must be configured for live mode; no alert has actually been sent during development.
+Ticker transient GET failures use bounded exponential backoff with jitter. 410/418/429 preserve a cooldown, honoring server reset information and a conservative minimum. X rate limits also persist across restarts. Credentials/permission errors are logged and not blindly retried. Repeated ticker or posting failures alert after three failed scheduled attempts; successful component operation resets its streak. Alert delivery is rate limited to hourly per component; failed delivery is logged and throttled by the same cooldown. The alert destination must be configured for live mode; no alert has actually been sent during development.
 
 A durable `pending` record is committed before sending to X. A timeout, 5xx, malformed success body, or crash can mean X accepted the post without returning its ID. The worker **does not retry** such submissions: all subsequent publishing is blocked pending reconciliation. Exactly-once remote delivery cannot be guaranteed across an ambiguous network failure; this conservative stop avoids automatic duplication.
 
@@ -115,4 +115,4 @@ To reconcile, stop the worker and inspect `jobs` plus the account's posts using 
 
 Launch is confirmed by the owner for **October 1, 2026 at 11:00 Singapore time (03:00 UTC)**. `start_at_utc` enforces this lower bound. Price slots are anchored at 03:00 UTC, repeating every four hours; daily summary is at 15:10 UTC (23:10 Singapore). This yields seven opportunities per UTC day, with a hard maximum of seven successful scheduled posts. Missing, invalid, stale, or unchanged data may result in fewer actual posts. All content concerns CZR/USDT only.
 
-The schedule is configured but **not armed for live posting**. API provider price/timestamp verification, final format approval, installed runtime credentials, and the team alert destination are still required. Manual read-only previews remain available before launch. Start a verified live worker only after those requirements are complete; it will skip attempts before the configured launch instant.
+The schedule is configured but **not armed for live posting**. API provider price/timestamp verification, final format approval, and the tested team alert destination are still required. Manual read-only previews remain available before launch. Start a verified live worker only after those requirements are complete; it will skip attempts before the configured launch instant.

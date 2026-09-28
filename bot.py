@@ -1,3 +1,27 @@
+"""CZR price bot. Python 3.11+, standard library only; safe by default."""
+import argparse
+import base64
+import hmac
+import secrets
+import contextlib
+import datetime as dt
+from decimal import Decimal, InvalidOperation
+import email.utils
+import fcntl
+import hashlib
+import http.client
+import json
+import os
+from pathlib import Path
+import random
+import sqlite3
+import string
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
 import smtplib
 import ssl
 from email.message import EmailMessage
@@ -38,29 +62,6 @@ class Alerts:
                 raise RuntimeError('Alert recipient rejected')
 
 alerts = Alerts()
-"""CZR price bot. Python 3.11+, standard library only; safe by default."""
-import argparse
-import base64
-import hmac
-import secrets
-import contextlib
-import datetime as dt
-from decimal import Decimal, InvalidOperation
-import email.utils
-import fcntl
-import hashlib
-import http.client
-import json
-import os
-from pathlib import Path
-import random
-import sqlite3
-import string
-import sys
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
 
 PAIR = 'czrtoken1858usdt1858'
 LINK = 'https://www.czrex.com/en_US/trade/CZR_USDT?type=spot'
