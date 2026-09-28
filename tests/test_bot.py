@@ -12,6 +12,7 @@ BASE = Path(__file__).resolve().parents[1]
 class BotTests(unittest.TestCase):
     def setUp(self):
         self.c = bot.load_config(BASE / 'config.json')
+        self.c['templates']['price']='CZR/USDT: {price} USDT\nSource: CZR Exchange\nTicker time: {timestamp}\n{link}'
         self.c.pop('launch_date', None)
         self.c.pop('start_at_utc', None)
         self.c['price_anchor_utc']='00:00'
