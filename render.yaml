@@ -11,8 +11,10 @@ services:
     dockerContext: .
     autoDeployTrigger: checksPass
     envVars:
+      # Keep operator-approved activation across Blueprint syncs.
+      # New installations must enter false until approved.
       - key: CZR_LIVE_POSTING
-        value: "false"
+        sync: false
       - key: PYTHONUNBUFFERED
         value: "1"
     disk:
