@@ -1,3 +1,43 @@
+import smtplib
+import ssl
+from email.message import EmailMessage
+
+class Alerts:
+    SMTP_KEYS = ('SMTP_HOST', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'ALERT_FROM_EMAIL', 'ALERT_TO_EMAIL')
+    
+    @staticmethod
+    def configured():
+        return bool(os.environ.get('TEAM_ALERT_WEBHOOK_URL') or all(os.environ.get(k) for k in Alerts.SMTP_KEYS))
+    
+    @staticmethod
+    def send(message, transport):
+        webhook = os.environ.get('TEAM_ALERT_WEBHOOK_URL')
+        if webhook:
+            transport('POST', webhook, {'text': message})
+            return
+        if not all(os.environ.get(k) for k in Alerts.SMTP_KEYS):
+            raise ValueError('Alert delivery is not configured')
+        port = int(os.environ.get('SMTP_PORT', '587'))
+        if port not in (465, 587):
+            raise ValueError('SMTP requires TLS on port 465 or 587')
+        email = EmailMessage()
+        email['Subject'] = 'CZR price bot alert'
+        email['From'] = os.environ['ALERT_FROM_EMAIL']
+        email['To'] = os.environ['ALERT_TO_EMAIL']
+        email.set_content(message)
+        context = ssl.create_default_context()
+        cls = smtplib.SMTP_SSL if port == 465 else smtplib.SMTP
+        options = {'context': context} if port == 465 else {}
+        with cls(os.environ['SMTP_HOST'], port, timeout=20, **options) as client:
+            if port == 587:
+                client.ehlo()
+                client.starttls(context=context)
+                client.ehlo()
+            client.login(os.environ['SMTP_USERNAME'], os.environ['SMTP_PASSWORD'])
+            if client.send_message(email):
+                raise RuntimeError('Alert recipient rejected')
+
+alerts = Alerts()
 """CZR price bot. Python 3.11+, standard library only; safe by default."""
 import argparse
 import base64
@@ -256,12 +296,12 @@ class Bot:
         self.s.log('failure', component=component, count=count, reason=reason)
         if count >= self.c['alert_after'] and self.now() >= self.s.get('alert_next:' + component, 0):
             self.s.log('alert_due', component=component, count=count)
-            url = os.environ.get('TEAM_ALERT_WEBHOOK_URL')
-            if url:
+            # Back off failed deliveries too; an outage must not flood the provider.
+            self.s.put('alert_next:' + component, self.now() + self.c['alert_cooldown_seconds'])
+            if alerts.configured():
                 try:
-                    self.http('POST', url, {'text': f'CZR price bot: {component} failed {count} times. Inspect durable audit logs. Reason: {reason}'})
+                    alerts.send(f'CZR price bot: {component} failed {count} times. Inspect durable audit logs. Reason: {reason}', self.http)
                     self.s.log('alert_sent', component=component)
-                    self.s.put('alert_next:' + component, self.now() + self.c['alert_cooldown_seconds'])
                 except Exception:
                     self.s.log('alert_delivery_failed', component=component)
             else:
@@ -298,7 +338,7 @@ class Bot:
         x_auth()
         if not os.environ.get('X_EXPECTED_USER_ID'):
             raise Refused('X user authorization missing')
-        if not os.environ.get('TEAM_ALERT_WEBHOOK_URL'):
+        if not alerts.configured():
             raise Refused('team alert destination missing')
     def run(self, kind, slot, live=False, raw=None, fixture=False, preview=False):
         mode = 'live' if live else ('fixture' if fixture else ('preview' if preview else 'dry'))

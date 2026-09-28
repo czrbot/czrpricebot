@@ -1,4 +1,4 @@
-"""Render worker and outbound private dashboard connector. Publishing is locked."""
+"""Render worker and outbound private dashboard connector. Scheduled publishing requires explicit runtime approval."""
 import json
 import os
 from pathlib import Path
@@ -72,6 +72,60 @@ def execute(center, command, now=None):
         store.log('cloud_command_result', command_id=ident, status=response['status'])
         return response
 
+class CloudCenter(Center):
+    """Only the scheduled path may publish; browser commands cannot enable it."""
+    def live_requested(self):
+        return os.environ.get('CZR_LIVE_POSTING') == 'true'
+
+    def snapshot(self):
+        state = super().snapshot()
+        state['live_requested'] = self.live_requested()
+        state['live_enabled'] = False
+        with self.store() as store:
+            try:
+                bot.Bot(self.config(), store).gate()
+                state['live_enabled'] = True
+            except bot.Refused:
+                pass
+        return state
+
+    def tick(self, now=None):
+        clock = time.time if now is None else lambda: now
+        now = time.time() if now is None else now
+        with self.mutex:
+            if not self.running:
+                return
+            config = self.config()
+            live = self.live_requested()
+            with self.store() as store:
+                runner = bot.Bot(config, store, transport=bot.request if live else self.safe_transport, now=clock)
+                if live:
+                    # Do not consume slots before prerequisites pass.
+                    try:
+                        runner.gate()
+                    except bot.Refused as error:
+                        if now >= store.get('cloud:gate_retry', 0):
+                            runner.failure('configuration', str(error))
+                            store.put('cloud:gate_retry', now + 300)
+                        return
+                for kind, slot in bot.slots(config, now):
+                    mode = 'live' if live else 'preview'
+                    key = f'cloud:attempted:{mode}:{kind}:{slot}'
+                    if store.get(key):
+                        continue
+                    # Reserve the slot durably before work; never replay on restart.
+                    store.put(key, True)
+                    runner.run(kind, slot, live=live, preview=not live)
+
+    def loop(self):
+        while not self.stop.wait(5):
+            try:
+                self.tick()
+            except Exception as error:
+                with self.store() as store:
+                    store.log('scheduler_error', reason=type(error).__name__)
+                    bot.Bot(self.config(), store).failure('scheduler', type(error).__name__)
+
 def main():
     os.umask(0o077)
     directory = Path(os.environ.get('CZR_STATE_DIR', '/state'))
@@ -80,10 +134,10 @@ def main():
     if not config.exists():
         shutil.copyfile(Path(__file__).with_name('config.json'), config)
     with bot.lock(directory / 'bot.sqlite3'):
-        center = Center(config, directory / 'bot.sqlite3')
+        center = CloudCenter(config, directory / 'bot.sqlite3')
         with center.store() as store:
             center.running = bool(store.get('cloud:scheduler_running', True))
-            store.log('cloud_worker_started', live=False, runtime='render')
+            store.log('cloud_worker_started', live=center.live_requested(), runtime='render')
         for sig in (signal.SIGTERM, signal.SIGINT):
             signal.signal(sig, lambda *_: center.stop.set())
         thread = threading.Thread(target=center.loop, daemon=True)
@@ -101,12 +155,15 @@ def main():
                 if failures:
                     with center.store() as store:
                         store.log('cloud_connection_restored')
+                        store.put('failures:dashboard_connection', 0)
                 failures = 0
             except Exception as error:
                 failures += 1
                 if failures == 1 or failures % 20 == 0:
                     with center.store() as store:
                         store.log('cloud_connection_failed', count=failures, reason=type(error).__name__)
+                with center.store() as store:
+                    bot.Bot(center.config(), store).failure('dashboard_connection', type(error).__name__)
                 # No exception bodies or URLs: they might contain secrets.
             center.stop.wait(min(30, 3 * max(1, failures)))
         thread.join(timeout=5)

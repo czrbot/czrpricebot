@@ -11,3 +11,29 @@ Configuration is copied to /state/config.json on first boot and then persists ac
 SQLite at /state/bot.sqlite3 stores commands, audit logs and deduplication state. Commands are marked pending before execution and are not replayed after an uncertain interruption. Connection errors use bounded backoff and emit generic errors without credentials. An unresponsive worker makes dashboard controls unavailable after 45 seconds. Use external service monitoring for prolonged worker outages.
 
 Cutover: install secrets, deploy the cloud worker, stop the old Mac connector, rotate the matching dashboard agent token, verify the dashboard runtime is render, then run a preview and test scheduler controls. Do not run a separate bot daemon alongside cloud.py against the same state file.
+
+## Guarded scheduled publishing
+
+`CloudCenter` now supports the live scheduled path when `CZR_LIVE_POSTING=true`. Leave it false until provider field verification, exact-config SHA approval, X account ID and credentials, and alerts have been reviewed. Browser commands cannot enable live mode. Manual preview always uses ticker-only transport; scheduled live runs use the existing Bot guards, launch boundary, daily cap, freshness checks, durable pending reservations and X cooldowns. Slot reservations survive restarts and prevent repeat submissions. Ambiguous X outcomes stay pending and stop further live runs until reconciled manually. The scheduler does not replay missed slots or retry uncertain posts.
+
+The dashboard currently uses preview-oriented labels; confirm runtime readiness and approval gates before switching to live mode. Configuration edits invalidate the approved SHA. State and deduplication live on the persistent /state disk.
+
+## Email failure alerts
+
+Use an authenticated SMTP provider. Store these values in Render Environment, never GitHub:
+
+- SMTP_HOST: provider SMTP server
+- SMTP_PORT: 587 (STARTTLS) or 465 (implicit TLS)
+- SMTP_USERNAME and SMTP_PASSWORD: provider credentials
+- ALERT_FROM_EMAIL: provider-authorized sender
+- ALERT_TO_EMAIL: support@czrex.com
+
+Webhook alerts remain supported through TEAM_ALERT_WEBHOOK_URL; when present, the webhook takes precedence. Remove it to use SMTP. Three consecutive component failures trigger an alert by default. Both successful and failed deliveries are throttled by the configurable cooldown. Exceptions are logged without credential values. An email provider must be connected and delivery tested before launch.
+
+After saving and deploying email secrets, run in Render Shell:
+
+```python
+python -c "import bot; bot.alerts.send('CZR price bot alert delivery test. No market update or X post was sent.',bot.request)"
+```
+
+A successful SMTP acceptance is not proof of inbox delivery; confirm receipt at support@czrex.com. Network/service outages also require Render infrastructure notifications because an unavailable process cannot send its own alerts.

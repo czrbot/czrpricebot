@@ -40,6 +40,8 @@ class Center:
     def config(self): return bot.load_config(self.config_path)
     def safe_transport(self, method, url, payload=None, token=None):
         # Hard boundary independent of browser state, approval variables or X keys.
+        if method == 'POST' and url == os.environ.get('TEAM_ALERT_WEBHOOK_URL') and not token:
+            return bot.request(method, url, payload)
         if method != 'GET' or url != 'https://openapi.czrex.com/sapi/v2/ticker?symbol=' + bot.PAIR or token:
             raise bot.Refused('Command center only allows the public CZR ticker request')
         return bot.request(method, url)
@@ -72,7 +74,7 @@ class Center:
                     'skipped':s.db.execute("SELECT COUNT(*) FROM events WHERE event LIKE 'skip_%'").fetchone()[0]},
                 'checks':{'provider':bot.verified(c,c['include_24h']), 'format':os.environ.get('CZR_APPROVED_CONFIG_SHA256')==bot.digest(c),
                     'x_credentials':bool(os.environ.get('X_USER_ACCESS_TOKEN') or all(os.environ.get(k) for k in bot.OAUTH_KEYS)),
-                    'alerts':bool(os.environ.get('TEAM_ALERT_WEBHOOK_URL'))}}
+                    'alerts':bot.alerts.configured()}}
     def preview(self):
         with self.mutex, self.store() as s:
             if time.time()-self.last_manual<10:
