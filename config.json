@@ -20,7 +20,7 @@
   "schedule_grace_seconds": 300,
   "alert_after": 3,
   "alert_cooldown_seconds": 3600,
-  "chainup_verification": {
+  "provider_verification": {
     "reference": "",
     "confirmed_at": "",
     "base_url": "",

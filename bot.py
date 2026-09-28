@@ -166,7 +166,7 @@ def load_config(path):
     return c
 
 def verified(c, stats=False):
-    v = c['chainup_verification']
+    v = c['provider_verification']
     required = ['base_url', 'symbol', 'last', 'timestamp']
     if stats:
         required += ['window', 'high', 'low', 'open', 'volume']
@@ -174,7 +174,7 @@ def verified(c, stats=False):
 
 def ticker(c, raw, now, fixture=False):
     if not fixture and not verified(c):
-        raise Refused('ChainUp base URL, price and timestamp verification pending')
+        raise Refused('API provider base URL, price and timestamp verification pending')
     if not isinstance(raw, dict) or raw.get('symbol', PAIR) != PAIR:
         raise Refused('missing or mismatched symbol')
     if 'code' in raw and str(raw['code']) not in ('0', '200'):
@@ -268,7 +268,7 @@ class Bot:
                 self.s.log('alert_unconfigured', component=component)
     def fetch(self, preview=False):
         if not preview and not verified(self.c):
-            raise Refused('ChainUp verification pending')
+            raise Refused('API provider verification pending')
         base = https(self.c['base_url']).rstrip('/')
         path = self.c['ticker_path']
         if not path.startswith('/') or '?' in path or '#' in path:
@@ -292,7 +292,7 @@ class Bot:
         if os.environ.get('CZR_LIVE_POSTING') != 'true':
             raise Refused('live posting disabled')
         if not verified(self.c, self.c['include_24h']):
-            raise Refused('ChainUp verification pending')
+            raise Refused('API provider verification pending')
         if os.environ.get('CZR_APPROVED_CONFIG_SHA256') != digest(self.c):
             raise Refused('final configuration and post formats require approval')
         x_auth()
@@ -447,7 +447,7 @@ def main():
         if a.preview_unverified:
             if c['include_24h']:
                 raise Refused('unverified preview may only show price')
-            print('UNVERIFIED LIVE-DATA PREVIEW — timestamp and field semantics await ChainUp confirmation; not publishable.', file=sys.stderr)
+            print('UNVERIFIED LIVE-DATA PREVIEW — timestamp and field semantics await API provider confirmation; not publishable.', file=sys.stderr)
         result = bot.run(a.kind, slot, a.live, raw, bool(a.fixture), a.preview_unverified)
         if result:
             print(result)
