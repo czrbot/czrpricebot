@@ -1,31 +1,22 @@
-# API provider confirmation record — PENDING
+# API provider confirmation record
 
-The owner supplied `https://openapi.czrex.com` and the exact pair identifier. A read-only request succeeded on September 28, 2026. No direct API provider confirmation was received. These are questions for the exchange's API provider support channel, prepared but **not sent**.
+## Evidence received September 28, 2026
 
-Please confirm for CZR Exchange tenant 1858:
+The owner relayed feedback from the API technical team, using a BTC/USDT example on the CZR public hostname. This is user-supplied support evidence; no ticket ID or respondent name was supplied. It confirms endpoint-level semantics, not a statement that CZR trading has launched. The owner previously confirmed the CZR pair identifier and endpoint.
 
-| Item | Confirmation needed |
-|---|---|
-| Full endpoint | Is `https://openapi.czrex.com/sapi/v2/ticker?symbol=czrtoken1858usdt1858` the canonical production public HTTPS endpoint? Confirm public authentication policy, limits, errors, cache behavior and redirects. |
-| Pair scope | Does this exact query return CZR/USDT exclusively? The observed response omits `symbol`; confirm that this is expected and document errors for unknown symbols. |
-| `last` | Is this the last executed spot trade price in USDT per CZR, excluding indicative, reference, prelaunch, synthetic or test prices? |
-| `time` | What event does it timestamp, in what epoch/unit/timezone? Docs say “Open Time.” Does it update on a trade, ticker calculation, cache refresh, or each request? Can it be fresh while `last` is stale? Supply an authoritative last-trade/market-update timestamp if necessary. |
-| Window | Are 24-hour fields rolling 86,400-second aggregates, a UTC calendar day, or another window? Boundary inclusion, reset time, empty/no-trade behavior? |
-| `open` | Exact baseline and selection rule, including when there is no trade at the boundary. Is it valid for `(last-open)/open*100`? |
-| `high`, `low` | Max/min of which eligible trades over which exact interval? Treatment of corrections/outliers and no trades? |
-| `vol` | Base CZR quantity or another unit? Gross/net volume, sum formula and eligible trade/window definitions? |
-| `amount` | Is this summed quote USDT turnover (`sum(price*quantity)`)? Rounding, adjustments, and window? |
-| `rose` | Ratio, percent, or another unit? Exact baseline, formula, rounding, and zero-baseline behavior? Bot will calculate percent independently from confirmed inputs. |
-| `askPrice`, `bidPrice` | Best current spot ask/bid? Null/zero semantics, observation timestamp, and whether these are part of the same snapshot? |
-| `askVolume`, `bidVolume` | Size at best price or aggregate depth? Base/quote units and observation time? |
-| Availability | Exact public trading opening time, and whether prelaunch endpoint values are genuine executable-market trades or test/indicative data? |
+- `time` is market snapshot time, not the latest executed trade time. The numeric timestamp is epoch milliseconds, typically with second precision.
+- `open` and `amount` use a rolling 24-hour window.
+- `rose = (last - open) / open`. The bot independently computes `(last - open) / open * 100` and displays percent.
+- The [official ticker documentation](https://exchangedocsv2.gitbook.io/open-api-doc-v2/spot#id-24hrs-ticker) identifies `last` as last price and `amount` as quote-currency volume. The latter is USDT for CZR/USDT.
 
-Record the support ticket/document reference, respondent, confirmation date, and exact answers. Update configuration mappings only from that evidence. The price-only path uses `last` and a verified freshness timestamp; 24-hour fields remain disabled. Bid/ask fields and `rose` are never displayed by this implementation. If timestamp semantics or the response structure differ, update and retest the adapter before approval.
+## Operational meaning
 
-## Documentation checked September 28, 2026
+The five-minute freshness threshold checks the age of the exchange market snapshot. It cannot establish how recently a trade executed. The post's Updated timestamp refers to that snapshot, never to the last executed trade. No trade-recency guarantee is made.
 
-The linked [spot API documentation](https://exchangedocsv2.gitbook.io/open-api-doc-v2/spot) identifies `amount` as quote-currency trading volume, so the adapter maps USDT volume to `amount`, never to `vol` or an estimate made by multiplying volume by last price. It labels `time` as “Open Time”; that does not establish freshness of the last executed trade. Exact window, opening-price selection, quote-volume calculation, and last-trade freshness remain unconfirmed. Verification gates remain pending.
+The bot maps USDT volume directly to `amount`; it does not multiply base quantity by the latest price. Invalid/missing inputs, zero opening price, stale/future snapshots, duplicates and unchanged displayed metrics continue to skip.
 
-## Approved routine format
+High/low and base-volume calculation confirmation remains unrecorded and those optional statistics remain disabled. The October 1, 2026 03:00 UTC launch gate remains unchanged. Prelaunch API data must not be presented as launched-market data.
 
-The owner supplied the routine template on September 28, 2026. The configuration now uses that exact structure with five-decimal prices, independently calculated percentage from confirmed last/open inputs, reported quote volume, UTC, and the @czrexchange mention. This approves the routine wording only; it does not certify market-data semantics or activate posting. Required missing/unverified fields cause a skip, including in previews.
+## Approval and activation
+
+The owner supplied and approved the routine format. Recording provider evidence does not enable posting. Automatic posting remains controlled by live environment settings, final configuration hash approval, correct X account, launch timing, and an alert destination.

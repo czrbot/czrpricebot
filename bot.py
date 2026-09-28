@@ -193,6 +193,8 @@ def load_config(path):
     dt.datetime.strptime(c['daily_utc'], '%H:%M')
     dt.datetime.strptime(c.get('price_anchor_utc','00:00'), '%H:%M')
     launch_timestamp(c)
+    if c.get('alert_mode', 'external') not in ('external', 'dashboard_only'):
+        raise Refused('invalid alert mode')
     if type(c.get('max_posts_per_day', 7)) is not int or not 1 <= c.get('max_posts_per_day', 7) <= 10:
         raise Refused('max_posts_per_day must be between 1 and 10')
     for key in ('freshness_seconds', 'future_skew_seconds', 'schedule_grace_seconds', 'alert_after', 'alert_cooldown_seconds'):
@@ -326,7 +328,9 @@ class Bot:
             self.s.log('alert_due', component=component, count=count)
             # Back off failed deliveries too; an outage must not flood the provider.
             self.s.put('alert_next:' + component, self.now() + self.c['alert_cooldown_seconds'])
-            if alerts.configured():
+            if self.c.get('alert_mode', 'external') == 'dashboard_only':
+                self.s.log('alert_dashboard_only', component=component, count=count, reason=reason)
+            elif alerts.configured():
                 try:
                     alerts.send(f'CZR price bot: {component} failed {count} times. Inspect durable audit logs. Reason: {reason}', self.http)
                     self.s.log('alert_sent', component=component)
@@ -366,7 +370,9 @@ class Bot:
         x_auth()
         if not os.environ.get('X_EXPECTED_USER_ID'):
             raise Refused('X user authorization missing')
-        if not alerts.configured():
+        if self.c.get('alert_mode', 'external') not in ('external', 'dashboard_only'):
+            raise Refused('invalid alert mode')
+        if self.c.get('alert_mode', 'external') == 'external' and not alerts.configured():
             raise Refused('team alert destination missing')
     def run(self, kind, slot, live=False, raw=None, fixture=False, preview=False):
         mode = 'live' if live else ('fixture' if fixture else ('preview' if preview else 'dry'))

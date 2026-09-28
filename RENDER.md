@@ -37,3 +37,7 @@ python -c "import bot; bot.alerts.send('CZR price bot alert delivery test. No ma
 ```
 
 A successful SMTP acceptance is not proof of inbox delivery; confirm receipt at support@czrex.com. Network/service outages also require Render infrastructure notifications because an unavailable process cannot send its own alerts.
+
+## Explicit dashboard-only exception
+
+The owner approved dashboard/log-only failure reporting on September 28, 2026. Set `alert_mode` to `dashboard_only` in the persistent config only when explicitly approved. Repeated failures remain in durable events, including `alert_dashboard_only`; no external notification is sent in this mode. Team members must check the dashboard. Default mode remains `external`, requiring a configured delivery service. Config changes invalidate the approved hash.

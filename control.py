@@ -67,7 +67,7 @@ class Center:
             if daily_next<=now: daily_next+=86400
             while launch is not None and daily_next<launch: daily_next+=86400
             return {'csrf':self.csrf,'config':c,'revision':bot.digest(c),'scheduler_running':self.running,
-                'live_enabled':False,'connected':True,'server_time':now,'next_price':price_next,'next_daily':daily_next,
+                'alert_mode':c.get('alert_mode','external'),'live_enabled':False,'connected':True,'server_time':now,'next_price':price_next,'next_daily':daily_next,
                 'preview':latest,'events':events,'jobs':jobs,
                 'counts':{'previews':s.db.execute("SELECT COUNT(*) FROM events WHERE event='manual_preview'").fetchone()[0],
                     'posted':s.db.execute("SELECT COUNT(*) FROM jobs WHERE status='posted'").fetchone()[0],
